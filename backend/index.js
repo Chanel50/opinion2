@@ -23,9 +23,10 @@ app.use((req, res, next) => {
 
 //Configuring cookie-parser
 app.use(cookieParser()); 
-
+app.use("/uploads", express.static("uploads"));
 //Using routes
 app.use('/api', route);
+
 //Using routes
 app.use("/api/cruds", crudRoutes);
 

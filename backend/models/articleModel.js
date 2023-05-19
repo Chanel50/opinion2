@@ -10,13 +10,14 @@ const crudSchema = new mongoose.Schema({
         required: true 
     },
         
-    image:{
-        data: Buffer,
-        contentType: String
-    }
+    image: {
+        type: String,
+        required: true
+      },
+      
 
 
 
 });
 
-module.exports = mongoose.model("Crud", crudSchema, "Cruds");
+module.exports = mongoose.model("Crud", crudSchema);

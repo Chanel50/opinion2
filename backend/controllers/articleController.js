@@ -1,101 +1,90 @@
+const { v4: uuidv4 } = require('uuid');
+const mongoose = require('mongoose');
+const { validationResult } = require('express-validator');
+
 const Crud = require("../models/articleModel");
 
-// Display All CRUD Data
-const crud_index = (req, res) => {
-    Crud.find()
-      .then(cruds => {
-        res.json(cruds);
-      })
-      .catch(err => {
-        console.log(err);
-        res.status(500).json({ error: err });
-      });
-  };
-
-// Create New CRUD
-const crud_create_post = (req, res) => {
-  let crud = new Crud(req.body);
-  crud
-    .save()
-    .then((crud) => {
-      res.send(crud);
-    })
-    .catch(function (err) {
-      res.status(422).send("Crud add failed");
-    });
+const getCrud = (req, res) => {
+  res.json(res.pagination);
 };
 
-// Show a particular CRUD Detail by Id
-const crud_details = (req, res) => {
-  Crud.findById(req.params.id, function (err, crud) {
-    if (!crud) {
-      res.status(404).send("No result found");
-    } else {
-      res.json(crud);
-    }
-  });
+const addCrud = (req, res, next) => {
+  const id = uuidv4()
+  const titre = req.body.titre;
+  const contenu = req.body.contenu;
+  const image = req.file.path;
+  const data = { id,titre, contenu, image }; // Remove `id` from the data object
+  console.log(data);
+
+  const errors = validationResult(req);
+  if( !errors.isEmpty() ) {
+      res.status(404).send({ error: 'true', msg: errors.errors[0]});
+      res.end();
+  }else {
+    const newCrud = new Crud(data);
+    newCrud
+      .save()
+      .then(() => res.status(200).json("Crud's Data Added Successfully"))
+      .catch((err) => res.status(400).json("Error: " + err));
+  }
 };
 
-// Update CRUD Detail by Id
-const crud_update = (req, res) => {
-  Crud.findByIdAndUpdate(req.params.id, req.body)
-    .then(function () {
-      res.json("Crud updated");
-    })
-    .catch(function (err) {
-      res.status(422).send("Crud update failed.");
-    });
+const deleteCrud = (req, res) => {
+  const CrudId = req.params.id;
+
+  Crud.findByIdAndDelete(CrudId)
+    .then(() => res.json("Crud's Data Deleted Successfully"))
+    .catch((err) => res.status(400).json("Error: " + err));
 };
 
-// Delete CRUD Detail by Id
-const crud_delete = (req, res) => {
-    Crud.findById(req.params.id)
-      .then((crud) => {
-        if (!crud) {
-          res.status(404).send("Crud not found");
-        } else {
-          Crud.findByIdAndRemove(req.params.id)
-            .then(() => {
-              res.status(200).json("Crud deleted");
-            })
-            .catch((err) => {
-              res.status(400).send("Crud delete failed.");
-            });
-        }
-      })
-      .catch((err) => {
-        res.status(500).send("Server error.");
-      });
-  };
-  
+const editCrud = (request, response) => {
+  const id = request.body._id;
+  const titre = request.body.titre;
+  const contenu = request.body.contenu;
+  const image = request.file.path;
+  const updatedData = { titre, contenu, image };
+
+  Crud.updateOne({_id: id}, updatedData )
+  .then((update) => {
+      if(update) {
+          return response.status(200).json("Updated Successfully");
+      } else {
+          return response.status(404).json("Error while Updating")
+      }
+  })
+  .catch((err) => response.status(404).json("Error:" + err)); 
+
+}
+
+
+const db = mongoose.connection;
+db.once("open", async () => {
+  if ((await Crud.countDocuments().exec()) > 0) {
+    return;
+  }
+  Crud.insertMany([]) // Pass an empty array instead of `Crud`
+    .then(() => console.log("Crud added Successfully"))
+    .catch((err) => console.log("Error: " + err));
+});
 
 const crud_search = async (req, res) => {
-    const { titre, contenu } = req.query;
-    const searchCriteria = {};
-    if (titre) {
-      searchCriteria.titre = titre;
-    }
-    if (contenu) {
-      searchCriteria.contenu = contenu;
-    }
-    try {
-      const cruds = await Crud.find(searchCriteria);
-      res.send(cruds);
-    } catch (err) {
-      console.error(err);
-      res.status(500).send("Error searching for data");
-    }
-  };
-  
-  
+  const { titre, contenu } = req.query;
+  const searchCriteria = {};
 
+  if (titre) {
+    searchCriteria.titre = titre;
+  }
+  if (contenu) {
+    searchCriteria.contenu = { $regex: new RegExp(contenu, 'i') };
+  }
 
-
-module.exports = {
-  crud_index,
-  crud_details,
-  crud_create_post,
-  crud_update,
-  crud_delete,
-  crud_search
+  try {
+    const cruds = await Crud.find(searchCriteria);
+    res.send(cruds);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Error searching for data");
+  }
 };
+
+module.exports = { getCrud, addCrud, deleteCrud, editCrud, crud_search };
